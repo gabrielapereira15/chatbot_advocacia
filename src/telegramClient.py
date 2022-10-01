@@ -9,6 +9,7 @@ data_base = BDClient()
 bot_token = os.environ.get('BOT_TELEGRAM_TOKEN')
 bot = telebot.TeleBot(bot_token)
 
+
 # OPÇÕES CLIENTES
 @bot.message_handler(commands=["Familia"])
 def family_option(message):
