@@ -1,6 +1,7 @@
 import os
 
 import telebot
+
 from bdClient import BDClient
 from src.messages import Messages
 
@@ -13,19 +14,17 @@ bot = telebot.TeleBot(bot_token)
 # OPÇÕES CLIENTES
 @bot.message_handler(commands=["Familia"])
 def family_option(message):
-    bot.reply_to(message, Messages.construction_message)
-    initial_message(message)
+    bot.reply_to(message, Messages.whats_redirect_familia)
 
 
 @bot.message_handler(commands=["Criminal"])
 def criminal_option(message):
-    initial_message(message)
+    bot.reply_to(message, Messages.whats_redirect_criminal)
 
 
 @bot.message_handler(commands=["Tributaria"])
 def tax_option(message):
-    bot.reply_to(message, Messages.construction_message)
-    initial_message(message)
+    bot.reply_to(message, Messages.whats_redirect_tributario)
 
 
 @bot.message_handler(commands=["Financeiro"])
@@ -36,8 +35,53 @@ def financial_option(message):
 
 @bot.message_handler(commands=["Consulta_Processual"])
 def process_consult(message):
-    bot.reply_to(message, Messages.construction_message)
-    initial_message(message)
+    client_id = message.from_user.id
+    consult_client = data_base.consult_client(client_id)
+
+    if consult_client is None:
+        bot.reply_to(message, Messages.invalid_option_to_client)
+        initial_message(message)
+        return
+
+    if consult_client["status"] is False:
+        initial_message(message)
+        return
+
+    try:
+        consult = consult_client["andamento_processual"]
+        for processo in consult:
+            options = "\n\nProcesso número: " + str(consult[processo]["numero_processo"]) + " | " + str(consult[processo]["local"]) + "\nÚltima atualização: " + str(consult[processo]["andamento"])
+            bot.send_message(client_id, options)
+
+        bot.send_message(client_id, "Deseja fazer o download das movimentações processuais?\n/Sim_fazer_download")
+    except KeyError:
+        msg = "Sem andamento processual cadastrado no momento."
+        bot.send_message(client_id, msg)
+
+
+@bot.message_handler(commands=["Sim_fazer_download"])
+def send_document(message):
+    client_id = message.from_user.id
+    consult_client = data_base.consult_client(client_id)
+
+    if consult_client is None:
+        bot.reply_to(message, Messages.invalid_option_to_client)
+        initial_message(message)
+        return
+
+    if consult_client["status"] is False:
+        initial_message(message)
+        return
+
+    try:
+        consult = consult_client["andamento_processual"]
+        for processo in consult:
+            process_number = str(consult[processo]["numero_processo"]).replace("/", "-")
+            document = open("../repository/" + str(process_number) + ".pdf", 'rb')
+            bot.send_document(client_id, document)
+    except KeyError:
+        msg = "Sem andamento processual cadastrado no momento."
+        bot.send_message(client_id, msg)
 
 
 # ADMINISTRADOR
@@ -50,6 +94,7 @@ def admin_access(message):
         bot.reply_to(message, Messages.invalid_option_to_client)
         initial_message(message)
         return
+
     if consult_client["access_level"] != "Admin":
         bot.reply_to(message, Messages.invalid_option_to_client)
         initial_message(message)
@@ -67,6 +112,7 @@ def release_client(message):
         bot.reply_to(message, Messages.invalid_option_to_client)
         initial_message(message)
         return
+
     if consult_client["access_level"] != "Admin":
         bot.reply_to(message, Messages.invalid_option_to_client)
         initial_message(message)
@@ -115,13 +161,15 @@ def reject_clients(message):
 def upload_consult(message):
     client_id = message.from_user.id
     consult_client = data_base.consult_client(client_id)
-    if consult_client:
-        if consult_client["access_level"] == "Admin":
-            bot.reply_to(message, Messages.construction_message)
-            initial_message(message)
-        else:
-            bot.reply_to(message, Messages.invalid_option_to_client)
-            initial_message(message)
+
+    if consult_client is None:
+        bot.reply_to(message, Messages.invalid_option_to_client)
+        initial_message(message)
+        return
+
+    if consult_client["access_level"] == "Admin":
+        bot.reply_to(message, Messages.construction_message)
+        initial_message(message)
     else:
         bot.reply_to(message, Messages.invalid_option_to_client)
         initial_message(message)
@@ -174,6 +222,7 @@ def sending_approval_message(client_id):
 def register_client(message):
     client_id = message.from_user.id
     consult_client = data_base.consult_client(client_id)
+
     if consult_client is None:
         client_name = message.from_user.first_name
         bot.send_message(client_id, Messages.cpf_request)
