@@ -9,33 +9,18 @@ class Messages:
                            "Essa opção ainda está em desenvolvimento."
 
     initial_message_text = "Bem-vindo ao canal de atendimento do escritório EB | Advocacia!\n" \
-                           "Nosso horário de atendimento é de segunda à sexta, das 09h às 18h.\n\n" \
-                           "EB | Advocacia"
+                           "Nosso horário de atendimento é de segunda à sexta, das 09h às 18h.\n"
 
-    optional_menu_client = "Por favor, clique em uma das opções de atendimento a seguir:\n/Familia\n/Criminal" \
-                           "\n/Tributaria\n/Financeiro\n/Consulta_Processual"
-
-    optional_menu_unknown = "Por favor, clique em uma das opções de atendimento a seguir:" \
-                            "\n/Familia\n/Criminal\n/Tributaria\n/Solicitar_Acesso"
-
-    optional_menu_admin = optional_menu_client + "\n/Acesso_Administrador"
-
-    admin_options = "Opções disponíveis para administradores:\n" \
-                    "/Liberar_acessos - Para liberar acesso de clientes pendentes.\n" \
-                    "/Upload_Andamento - Para inserir um andamento processual.\n" \
-                    "/Upload_Custas - Para inserir um boleto de custas processuais.\n" \
-                    "/Upload_Honorarios - Para inserir um boleto de custas processuais"
-
-    invalid_option_to_client = "Opção inválida para cliente."
+    invalid_option_to_client = "Opção inválida para esse usuário.\nPara voltar ao menu inicial digite: Oi"
 
     waiting_for_approval = "Solicitação de acesso efetuada!\nPor favor, aguarde a aprovação do advogado para " \
-                           "liberação do acesso as opções personalizadas.\n\nAssim que o acesso for liberado " \
-                           "enviaremos uma notificação. \n\nObrigada pelo contato,\nEB | Advocacia"
+                           "liberação do acesso às opções personalizadas.\n\nAssim que o acesso for liberado " \
+                           "enviaremos uma notificação."
 
-    cpf_request = "Por favor, informe seu CPF   (Ex: 000.000.000-30)"
+    cpf_request = "Por favor, informe seu CPF   (Ex: 000.000.000-00)"
 
     registering = "Solicitação de acesso pendente de finalização.\nPara continuar insira o seu CPF (Ex: " \
-                  "000.000.000-30) ou para cancelar a solicitação de acesso clique em\n/cancelar_solicitacao_acesso"
+                  "000.000.000-00) ou para cancelar a solicitação de acesso clique em"
 
     accepted_registration = "Olá, seja bem-vindo! Seu cadastro foi aceito pelo(a) advogado(a).\nA partir de agora " \
                             "você tem acesso a opções exclusivas para clientes.\nClique em /iniciar para acessá-las."

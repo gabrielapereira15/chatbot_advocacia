@@ -1,6 +1,7 @@
 import os
 
-import telebot
+from telebot import TeleBot
+from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from bdClient import BDClient
 from src.messages import Messages
@@ -8,69 +9,84 @@ from src.messages import Messages
 data_base = BDClient()
 
 bot_token = os.environ.get('BOT_TELEGRAM_TOKEN')
-bot = telebot.TeleBot(bot_token)
+bot = TeleBot(bot_token)
 
 
 # OPÇÕES CLIENTES
-@bot.message_handler(commands=["Familia"])
 def family_option(message):
     bot.reply_to(message, Messages.whats_redirect_familia)
 
 
-@bot.message_handler(commands=["Criminal"])
 def criminal_option(message):
     bot.reply_to(message, Messages.whats_redirect_criminal)
 
 
-@bot.message_handler(commands=["Tributaria"])
 def tax_option(message):
     bot.reply_to(message, Messages.whats_redirect_tributario)
 
 
-@bot.message_handler(commands=["Financeiro"])
 def financial_option(message):
-    bot.reply_to(message, Messages.construction_message)
-    initial_message(message)
-
-
-@bot.message_handler(commands=["Consulta_Processual"])
-def process_consult(message):
-    client_id = message.from_user.id
+    client_id = message.chat.id
     consult_client = data_base.consult_client(client_id)
 
     if consult_client is None:
         bot.reply_to(message, Messages.invalid_option_to_client)
-        initial_message(message)
         return
 
     if consult_client["status"] is False:
-        initial_message(message)
+        return
+
+    boletos_list = ["familia", "criminal", "tributario"]
+    i = 0
+    for area in boletos_list:
+        try:
+            document = open("../repository/boleto_" + str(area) + "_" + str(client_id) + ".pdf", 'rb')
+            bot.send_document(client_id, document)
+            i += 1
+        except FileNotFoundError:
+            pass
+
+    if i == 0:
+        msg = "Sem boletos cadastrados no momento."
+        bot.send_message(client_id, msg)
+    else:
+        bot.send_message(client_id, "Prontinho, esses são os boletos disponibilizados pelo seu(sua) advogado(a).\n"
+                                    "Para voltar ao menu inicial, só nos digitar um: Oi")
+
+
+def process_consult(message):
+    client_id = message.chat.id
+    consult_client = data_base.consult_client(client_id)
+
+    if consult_client is None:
+        bot.reply_to(message, Messages.invalid_option_to_client)
+        return
+
+    if consult_client["status"] is False:
         return
 
     try:
         consult = consult_client["andamento_processual"]
         for processo in consult:
-            options = "\n\nProcesso número: " + str(consult[processo]["numero_processo"]) + " | " + str(consult[processo]["local"]) + "\nÚltima atualização: " + str(consult[processo]["andamento"])
+            options = "\n\nProcesso número: " + str(consult[processo]["numero_processo"]) + " | " + str(
+                consult[processo]["local"]) + "\nÚltima atualização: " + str(consult[processo]["andamento"])
             bot.send_message(client_id, options)
-
-        bot.send_message(client_id, "Deseja fazer o download das movimentações processuais?\n/Sim_fazer_download")
+        options_list = ["Sim, fazer download.", "Não, estou satisfeito."]
+        build_bottons(options_list, client_id, "Deseja fazer o download das movimentações processuais?")
     except KeyError:
         msg = "Sem andamento processual cadastrado no momento."
         bot.send_message(client_id, msg)
 
 
-@bot.message_handler(commands=["Sim_fazer_download"])
 def send_document(message):
-    client_id = message.from_user.id
+    client_id = message.chat.id
     consult_client = data_base.consult_client(client_id)
 
     if consult_client is None:
         bot.reply_to(message, Messages.invalid_option_to_client)
-        initial_message(message)
         return
 
     if consult_client["status"] is False:
-        initial_message(message)
         return
 
     try:
@@ -85,43 +101,41 @@ def send_document(message):
 
 
 # ADMINISTRADOR
-@bot.message_handler(commands=["Acesso_Administrador"])
 def admin_access(message):
-    client_id = message.from_user.id
+    client_id = message.chat.id
     consult_client = data_base.consult_client(client_id)
 
     if consult_client is None:
         bot.reply_to(message, Messages.invalid_option_to_client)
-        initial_message(message)
         return
 
     if consult_client["access_level"] != "Admin":
         bot.reply_to(message, Messages.invalid_option_to_client)
-        initial_message(message)
         return
 
-    bot.send_message(client_id, Messages.admin_options)
+    admin_options = ["Liberar acessos", "Upload de andamento", "Upload de custas", "Upload de honorários"]
+    text = "Opções disponíveis para administradores:\n\n- Liberar acessos - Para liberar acesso de clientes pendentes.\n\n" \
+           "- Upload andamento - Para inserir um andamento processual.\n\n- Upload custas - Para inserir um boleto de " \
+           "custas processuais.\n\n- Upload honorários - Para inserir um boleto de custas processuais"
+    build_bottons(admin_options, client_id, text)
 
 
-@bot.message_handler(commands=["Liberar_acessos"])
 def release_client(message):
-    client_id = message.from_user.id
+    client_id = message.chat.id
     consult_client = data_base.consult_client(client_id)
 
     if consult_client is None:
         bot.reply_to(message, Messages.invalid_option_to_client)
-        initial_message(message)
         return
 
     if consult_client["access_level"] != "Admin":
         bot.reply_to(message, Messages.invalid_option_to_client)
-        initial_message(message)
         return
 
     waiting_for_approval = list(data_base.consult_waiting_approval())
     if len(waiting_for_approval) == 0:
         bot.reply_to(message, "Não existe solicitações de cadastro para liberação no momento.")
-        initial_message(message)
+        admin_access(message)
         return
 
     new_client_list = ""
@@ -157,54 +171,50 @@ def reject_clients(message):
         release_client(message)
 
 
-@bot.message_handler(commands=["Upload_Andamento"])
 def upload_consult(message):
-    client_id = message.from_user.id
+    client_id = message.chat.id
     consult_client = data_base.consult_client(client_id)
 
     if consult_client is None:
         bot.reply_to(message, Messages.invalid_option_to_client)
-        initial_message(message)
         return
 
     if consult_client["access_level"] == "Admin":
         bot.reply_to(message, Messages.construction_message)
-        initial_message(message)
+        admin_access(message)
     else:
         bot.reply_to(message, Messages.invalid_option_to_client)
-        initial_message(message)
+        return
 
 
-@bot.message_handler(commands=["Upload_Custas"])
 def upload_tax(message):
-    client_id = message.from_user.id
+    client_id = message.chat.id
     consult_client = data_base.consult_client(client_id)
     if consult_client:
         if consult_client["access_level"] == "Admin":
             bot.reply_to(message, Messages.construction_message)
-            initial_message(message)
+            admin_access(message)
         else:
             bot.reply_to(message, Messages.invalid_option_to_client)
-            initial_message(message)
+            return
     else:
         bot.reply_to(message, Messages.invalid_option_to_client)
-        initial_message(message)
+        return
 
 
-@bot.message_handler(commands=["Upload_Honorarios"])
 def upload_fee(message):
-    client_id = message.from_user.id
+    client_id = message.chat.id
     consult_client = data_base.consult_client(client_id)
     if consult_client:
         if consult_client["access_level"] == "Admin":
             bot.reply_to(message, Messages.construction_message)
-            initial_message(message)
+            admin_access(message)
         else:
             bot.reply_to(message, Messages.invalid_option_to_client)
-            initial_message(message)
+            return
     else:
         bot.reply_to(message, Messages.invalid_option_to_client)
-        initial_message(message)
+        return
 
 
 def sending_new_clients_to_admin():
@@ -218,17 +228,17 @@ def sending_approval_message(client_id):
     bot.send_message(client_id, Messages.accepted_registration)
 
 
-@bot.message_handler(commands=["Solicitar_Acesso"])
 def register_client(message):
-    client_id = message.from_user.id
+    client_id = message.chat.id
     consult_client = data_base.consult_client(client_id)
 
     if consult_client is None:
-        client_name = message.from_user.first_name
+        client_name = message.chat.first_name
         bot.send_message(client_id, Messages.cpf_request)
         data_base.insert_new_client(client_id, client_name)
     else:
-        initial_message(message)
+        bot.reply_to(message, Messages.invalid_option_to_client)
+        return
 
 
 @bot.message_handler(regexp="[0-9]{3}.[0-9]{3}.[0-9]{3}-[0-9]{2}")
@@ -265,19 +275,76 @@ def get_cpf(message):
         initial_message(message)
 
 
-@bot.message_handler(commands=["cancelar_solicitacao_acesso"])
 def cancel_access_request(message):
-    client_id = message.from_user.id
+    client_id = message.chat.id
     data_base.delete_document(client_id)
-    initial_message(message)
+    bot.send_message(client_id, "Prontinho, solicitação de acesso cancelada.\nPara voltar ao menu inicial digite: Oi")
+
+
+def build_menu(buttons, n_cols, header_buttons=None, footer_buttons=None):
+    menu = [buttons[i:i + n_cols] for i in range(0, len(buttons), n_cols)]
+    if header_buttons:
+        menu.insert(0, header_buttons)
+    if footer_buttons:
+        menu.append(footer_buttons)
+    return menu
+
+
+def build_bottons(options, client_id, text):
+    if options is not None:
+        button_list = []
+        for each in options:
+            button_list.append(InlineKeyboardButton(each, callback_data=each))
+        reply_markup = InlineKeyboardMarkup(build_menu(button_list, n_cols=2))
+        bot.send_message(client_id, text=text, reply_markup=reply_markup)
 
 
 def trigger_message(message):
     return True
 
 
+@bot.callback_query_handler(func=trigger_message)
+def callback_options(message):
+    if message.data == "Família":
+        family_option(message.message)
+    if message.data == "Criminal":
+        criminal_option(message.message)
+    if message.data == "Tributário":
+        tax_option(message.message)
+    if message.data == "Financeiro":
+        financial_option(message.message)
+    if message.data == "Consulta Processual":
+        process_consult(message.message)
+    if message.data == "Solicitar Acesso":
+        register_client(message.message)
+    if message.data == "Acesso Administrador":
+        admin_access(message.message)
+    if message.data == "Sim, fazer download.":
+        send_document(message.message)
+        bot.send_message(message.message.chat.id,
+                         "Prontinho, ficamos à disposição. Para mais informações, só nos enviar uma "
+                         "mensagem :)")
+    if message.data == "Não, estou satisfeito.":
+        bot.send_message(message.message.chat.id,
+                         "Perfeito, ficamos à disposição. Para mais informações, só nos enviar uma "
+                         "mensagem :)")
+    if message.data == "Cancelar solicitação de acesso":
+        cancel_access_request(message.message)
+    if message.data == "Liberar acessos":
+        release_client(message.message)
+    if message.data == "Upload de andamento":
+        upload_consult(message.message)
+    if message.data == "Upload de custas":
+        upload_tax(message.message)
+    if message.data == "Upload de honorários":
+        upload_fee(message.message)
+    if message.data == "Encerrar conversa":
+        bot.send_message(message.message.chat.id, "Ok, obrigada pelo contato. Tchau, tchau!")
+
+
 @bot.message_handler(func=trigger_message)
 def initial_message(message):
+
     client_id = message.from_user.id
     client_name = message.from_user.first_name
     print(client_id, client_name)
@@ -285,20 +352,37 @@ def initial_message(message):
     consult_client = data_base.consult_client(client_id)
     print("Já é cliente: " + str(consult_client))
 
+    optional_menu_default = ["Família", "Criminal", "Tributário"]
+    optional_menu_admin = "Acesso Administrador"
+    optional_menu_client = ["Financeiro", "Consulta Processual"]
+    optional_menu_unknown = "Solicitar Acesso"
+
     if consult_client:
         if consult_client['access_level'] == "Admin":
-            options = Messages.optional_menu_admin
+            optional_menu_default.append(optional_menu_admin)
+            for option in optional_menu_client:
+                optional_menu_default.append(option)
+            options = optional_menu_default
         elif consult_client["status"] is False:
-            options = Messages.waiting_for_approval
+            bot.send_message(client_id, Messages.waiting_for_approval)
+            options = optional_menu_default
         elif consult_client["status"] == "Cadastrando":
-            options = Messages.registering
+            options = ["Cancelar solicitação de acesso"]
+            build_bottons(options, client_id, Messages.registering)
+            options = None
         else:
-            options = Messages.optional_menu_client
+            for option in optional_menu_client:
+                optional_menu_default.append(option)
+            options = optional_menu_default
     else:
         ini_message = "Olá, " + str(client_name) + "!\n\n" + Messages.initial_message_text
         bot.reply_to(message, ini_message)
-        options = Messages.optional_menu_unknown
-    bot.send_message(client_id, options)
+        optional_menu_default.append(optional_menu_unknown)
+        options = optional_menu_default
+
+    stop_chat = "Encerrar conversa"
+    options.append(stop_chat)
+    build_bottons(options, client_id, 'Por favor, clique em uma das opções de atendimento a seguir:')
 
 
 bot.polling()
