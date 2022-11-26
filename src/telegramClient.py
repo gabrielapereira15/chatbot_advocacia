@@ -1,4 +1,5 @@
 import os
+import time
 
 from telebot import TeleBot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -389,4 +390,13 @@ class Menu:
         Menu.build_bottons(options, client_id, 'Por favor, clique em uma das opções de atendimento a seguir:')
 
 
-bot.polling()
+def polling():
+    try:
+        bot.polling()
+    except Exception as e:
+        print(e)
+        time.sleep(5)
+        polling()
+
+
+polling()
